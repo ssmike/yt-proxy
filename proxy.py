@@ -7,6 +7,7 @@ import yt.wrapper as yt
 import sys
 import os
 import time
+import uuid
 
 app = Flask(__name__)
 sockets = Sockets(app)
@@ -14,7 +15,6 @@ sockets = Sockets(app)
 PATH="//atom"
 raw_config = open(os.environ['YT_DRIVER_CONFIG_PATH']).read()
 yt.config = yson.loads(raw_config)
-
 
 @sockets.route('/')
 def socket_handler(ws):
@@ -25,8 +25,9 @@ def socket_handler(ws):
             print("shutting down proxy")
             sys.exit(0)
         message = json.loads(raw_message)
+        op = message["f"]
         try:
-            if ("wait-for-yt" in message) and message["wait-for-yt"]:
+            if op == "wait-for-yt":
                 toBreak = False
                 while not toBreak:
                     toBreak = True
@@ -35,16 +36,21 @@ def socket_handler(ws):
                     except Exception as e:
                         toBreak = False
                         time.sleep(2)
-            elif message["f"] == "read":
+            elif op == "read":
                 val = int(yt.get(PATH))
                 message["value"] = val
-            elif message["f"] == "write":
+            elif op == "write":
                 yt.set(PATH, message["value"])
             message["type"] = "ok"
         except Exception as e:
+            my_id = uuid.uuid4()
+            print(my_id)
             print(e)
-            message["type"] = "fail"
-            message["error"] = "yt-failure"
+            if op == write:
+                message["type"] = "info"
+            else:
+                message["type"] = "fail"
+            message["error"] = my_id
         ws.send(json.dumps(message))
 
 
