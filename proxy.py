@@ -48,6 +48,8 @@ def mount_table():
     while yt.get(TABLE_PATH + "/@tablet_state") != "mounted":
         try:
             yt.mount_table(TABLE_PATH)
+            yt.insert_rows(TABLE_PATH, [dict(key=yt_key(i), value=1)
+                                             for i in range(3)])
         except Exception as e:
             eprint(e)
 
