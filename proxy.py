@@ -8,6 +8,7 @@ import os
 import time
 import uuid
 from subprocess import call
+from yt.wrapper.transaction_commands import *
 
 PATH="//atom"
 raw_config = open(os.environ['YT_DRIVER_CONFIG_PATH']).read()
@@ -53,7 +54,10 @@ def mount_table():
         except Exception as e:
             eprint(e)
 
-def handlemessage():
+CURRENT_TRANSACTION = None
+TO_CLEAN = False
+
+def consume_input():
     raw_message = raw_input()
     eprint(raw_message)
     message = json.loads(raw_message)
@@ -61,6 +65,15 @@ def handlemessage():
     op_val = None
     if "value" in message:
         op_val = message["value"]
+    return message, op, op_val
+
+
+def answer(message):
+    print(json.dumps(message))
+    sys.stdout.flush()
+
+def handlemessage():
+    message, op, op_val = consume_input()
     try:
         if op == "wait-for-yt":
             wait_for_yt()
@@ -69,53 +82,36 @@ def handlemessage():
             message["value"] = val
             message["type"] = "ok"
         elif op == "write":
+            message["type"] = "info"
             yt.set(PATH, message["value"])
             message["type"] = "ok"
-        elif op == "dyn-table-cas":
-            from_key, to_key = map(yt_key, op_val["key"])
-            from_val, to_val = op_val["val"]
-            try:
-                with yt.Transaction(type='tablet', sticky=True):
-                    rows = list(yt.lookup_rows('//table', [dict(key=from_key)]))
-                    if len(rows) == 0:
-                        message["type"] = "fail"
-                    else:
-                        from_val = rows[0]['value']
-                        op["ret"] = from_val
-                        yt.insert_rows(TABLE_PATH, [dict(key=to_key,
-                                                         value=(to_val + from_val)%5)])
-                        message["type"] = "ok"
-            except yt.YtResponseError as e:
-                if e.contains_code(1700): #Transaction lock conflict
-                    message["type"] = "fail"
-                else:
-                    raise e
-        elif op == "dyn-table-write":
-            yt.insert_rows(TABLE_PATH, [dict(key=yt_key(op_val["key"]), value=op_val["val"])])
-            message["type"] = "ok"
-        elif op == "dyn-table-read":
-            rows = list(yt.lookup_rows('//table', [dict(key=yt_key(op_val["key"]))]))
-            if len(rows) == 0:
-                message["type"] = "fail"
-            else:
+        elif op == "read-and-lock":
+            with yt.Transaction(type='tablet', sticky=True):
+                row = next(yt.lookup_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]))]))
+                op_val[1] = row['value']
                 message["type"] = "ok"
-                op_val["val"] = rows[0]["value"]
+                answer(message)
+                message, op, op_val = consume_input()
+                assert(op == "write-and-unlock")
+                yt.insert_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]), value=op_val[1])])
+            message["type"] = "ok"
         elif op == "mount-table":
             mount_table()
-
+        elif op == "terminate":
+            answer(message)
+            sys.exit(0)
+        else:
+            message["type"] = "fail"
     except Exception as e:
         my_id = uuid.uuid4()
         eprint(my_id)
         eprint(e)
-        if op in ["write", "dyn-table-write", "dyn-table-cas"]:
+        if op in ["write", "write-and-unlock"]:
             message["type"] = "info"
         else:
             message["type"] = "fail"
         message["error"] = str(my_id)
-    print(json.dumps(message))
-    sys.stdout.flush()
-    if op == "terminate":
-        sys.exit(0)
+    answer(message)
 
 
 if __name__ == "__main__":
