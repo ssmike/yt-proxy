@@ -95,15 +95,21 @@ def handlemessage():
             yt.set(PATH, message["value"])
             message["type"] = "ok"
         elif op == "read-and-lock":
-            with yt.Transaction(type='tablet', sticky=True):
-                row = next(yt.lookup_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]))]))
-                op_val[1] = row['value']
-                message["type"] = "ok"
-                answer(message)
-                message, op, op_val = consume_input()
-                assert(op == "write-and-unlock")
-                yt.insert_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]), value=op_val[1])])
-            message["type"] = "ok"
+            try:
+                with yt.Transaction(type='tablet', sticky=True):
+                    row = next(yt.lookup_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]))]))
+                    op_val[1] = row['value']
+                    message["type"] = "ok"
+                    answer(message)
+                    message, op, op_val = consume_input()
+                    assert(op == "write-and-unlock")
+                    yt.insert_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]), value=op_val[1])])
+                    message["type"] = "ok"
+            except yt.YtResponseError as e:
+                if e.contains_code(1700): #Transaction lock conflict
+                    message["type"] = "fail"
+                else:
+                    raise e
         elif op == "mount-table":
             mount_table()
         elif op == "terminate":
