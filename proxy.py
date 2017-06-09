@@ -33,13 +33,12 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 def init_table():
-    repeat = False
-    while repeat:
+    while True:
         try:
             yt.insert_rows(TABLE_PATH, [dict(key=yt_key(i), value=1)
                                              for i in range(3)])
+            break
         except Exception as e:
-            repeat = True
             eprint(e)
 
 
