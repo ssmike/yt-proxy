@@ -36,7 +36,7 @@ def init_table():
     while True:
         try:
             yt.insert_rows(TABLE_PATH, [dict(key=yt_key(i), value=1)
-                                             for i in range(3)])
+                                             for i in range(5)])
             break
         except Exception as e:
             eprint(e)
@@ -81,6 +81,12 @@ def answer(message):
     print(json.dumps(message))
     sys.stdout.flush()
 
+def dyntables_kvs_from_value(value):
+    return [dict(key=k, value=v) for k, v in value[0]]
+
+def dyntables_ks_from_value(value):
+    return [dict(key=k) for k, v in value[0]]
+
 def handlemessage():
     message, op, op_val = consume_input()
     try:
@@ -97,13 +103,15 @@ def handlemessage():
         elif op == "read-and-lock":
             try:
                 with yt.Transaction(type='tablet', sticky=True):
-                    row = next(yt.lookup_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]))]))
-                    op_val[1] = row['value']
+                    for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val))):
+                        for orig_row in op_val:
+                            if orig_row[0] == row['key']:
+                                orig_row[1] = row['value']
                     message["type"] = "ok"
                     answer(message)
                     message, op, op_val = consume_input()
                     assert(op == "write-and-unlock")
-                    yt.insert_rows(TABLE_PATH, [dict(key=yt_key(op_val[0]), value=op_val[1])])
+                    yt.insert_rows(TABLE_PATH, dyntables_kvs_from_value(op_val))
                     message["type"] = "ok"
             except yt.YtResponseError as e:
                 if e.contains_code(1700): #Transaction lock conflict
