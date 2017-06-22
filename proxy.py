@@ -82,10 +82,10 @@ def answer(message):
     sys.stdout.flush()
 
 def dyntables_kvs_from_value(value):
-    return [dict(key=k, value=v) for k, v in value[0]]
+    return [dict(key=yt_key(k), value=v) for k, v in value[0]]
 
 def dyntables_ks_from_value(value):
-    return [dict(key=k) for k, v in value[0]]
+    return [dict(key=yt_key(k)) for k, v in value[0]]
 
 def handlemessage():
     message, op, op_val = consume_input()
@@ -103,10 +103,12 @@ def handlemessage():
         elif op == "read-and-lock":
             try:
                 with yt.Transaction(type='tablet', sticky=True):
-                    for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val))):
-                        for orig_row in op_val:
-                            if orig_row[0] == row['key']:
-                                orig_row[1] = row['value']
+                    for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val)):
+                        key = row['key']
+                        value = row['value']
+                        for i in range(len(op_val[0])):
+                            if yt_key(op_val[0][i][0]) == int(key):
+                                op_val[0][i][1] = int(value)
                     message["type"] = "ok"
                     answer(message)
                     message, op, op_val = consume_input()
