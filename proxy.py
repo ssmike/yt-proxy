@@ -17,7 +17,7 @@ yt.config = yson.loads(raw_config)
 TABLE_PATH="//table"
 
 def yt_key(x):
-    return {0:2, 1:21, 2:31}[x]
+    return {0:2, 1:21, 2:31, 3:41, 4:51}[x]
 
 def wait_for_yt():
     toBreak = False
@@ -45,7 +45,7 @@ def init_table():
 def mount_table():
     try:
         if yt.get("//sys/tablet_cells/@count") == 0:
-            for i in range(3):
+            for i in range(5):
                 yt.create("tablet_cell", attributes={"replication_factor": 3,
                                                      "read_quorum":2,
                                                      "write_quorum":2})
@@ -53,7 +53,7 @@ def mount_table():
         schema = yson.loads("<strict=%true; unique_keys=%true>[{name=key;\
                                 type=int64; sort_order=ascending}; {name=value; type=int64}]")
         yt.create_table(TABLE_PATH, attributes={"dynamic": True, "schema": schema})
-        yt.reshard_table(TABLE_PATH, pivot_keys=[[], [20], [30]])
+        yt.reshard_table(TABLE_PATH, pivot_keys=[[], [20], [30], [40], [50]])
     except Exception as e:
         eprint(e)
     while yt.get(TABLE_PATH + "/@tablet_state") != "mounted":
