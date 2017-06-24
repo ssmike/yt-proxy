@@ -128,14 +128,11 @@ def handlemessage():
         else:
             message["type"] = "fail"
     except Exception as e:
-        my_id = uuid.uuid4()
-        eprint(my_id)
         eprint(e)
         if op in ["write", "write-and-unlock"]:
             message["type"] = "info"
         else:
             message["type"] = "fail"
-        message["error"] = str(my_id)
     answer(message)
 
 
