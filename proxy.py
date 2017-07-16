@@ -69,11 +69,12 @@ TO_CLEAN = False
 def consume_input():
     raw_message = raw_input()
     eprint(raw_message)
-    message = edn.loads(raw_message)
+    message = dict(edn.loads(raw_message))
     op = message[edn.Keyword("f")]
     op_val = None
     if edn.Keyword("value") in message:
-        op_val = message[edn.Keyword("value")]
+        op_val = dict(message[edn.Keyword("value")])
+        message[edn.Keyword("value")] = op_val
     return message, op, op_val
 
 
@@ -82,10 +83,10 @@ def answer(message):
     sys.stdout.flush()
 
 def dyntables_kvs_from_value(value):
-    return [dict(key=yt_key(k), value=v) for k, v in value[0]]
+    return [dict(key=yt_key(k), value=v) for k, v in value]
 
 def dyntables_ks_from_value(value):
-    return [dict(key=yt_key(k)) for k, v in value[0]]
+    return [dict(key=yt_key(k)) for k, v in value]
 
 def handlemessage():
     message, op, op_val = consume_input()
@@ -106,9 +107,7 @@ def handlemessage():
                     for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val)):
                         key = row['key']
                         value = row['value']
-                        for i in range(len(op_val[0])):
-                            if yt_key(op_val[0][i][0]) == int(key):
-                                op_val[0][i][1] = int(value)
+                        op_val[int(key)] = int(value)
                     message[edn.Keyword("type")] = edn.Keyword("ok")
                     answer(message)
                     message, op, op_val = consume_input()
