@@ -100,7 +100,7 @@ def handlemessage():
             message[edn.Keyword("type")] = edn.Keyword("info")
             yt.set(PATH, message[edn.Keyword("value")])
             message[edn.Keyword("type")] = edn.Keyword("ok")
-        elif op == edn.Keyword("read-and-lock"):
+        elif op == edn.Keyword("start-tx"):
             try:
                 with yt.Transaction(type='tablet', sticky=True):
                     for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val)):
@@ -112,7 +112,7 @@ def handlemessage():
                     message[edn.Keyword("type")] = edn.Keyword("ok")
                     answer(message)
                     message, op, op_val = consume_input()
-                    assert(op == edn.Keyword("write-and-unlock"))
+                    assert(op == edn.Keyword("commit"))
                     yt.insert_rows(TABLE_PATH, dyntables_kvs_from_value(op_val))
                     message[edn.Keyword("type")] = edn.Keyword("ok")
             except yt.YtResponseError as e:
