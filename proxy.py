@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 from __future__ import print_function
 import yt.yson as yson
-import json
+import edn_format as edn
 import yt.wrapper as yt
 import sys
 import os
@@ -69,16 +69,16 @@ TO_CLEAN = False
 def consume_input():
     raw_message = raw_input()
     eprint(raw_message)
-    message = json.loads(raw_message)
-    op = message["f"]
+    message = edn.loads(raw_message)
+    op = message[edn.Keyword("f")]
     op_val = None
-    if "value" in message:
-        op_val = message["value"]
+    if edn.Keyword("value") in message:
+        op_val = message[edn.Keyword("value")]
     return message, op, op_val
 
 
 def answer(message):
-    print(json.dumps(message))
+    print(edn.dumps(message))
     sys.stdout.flush()
 
 def dyntables_kvs_from_value(value):
@@ -90,17 +90,17 @@ def dyntables_ks_from_value(value):
 def handlemessage():
     message, op, op_val = consume_input()
     try:
-        if op == "wait-for-yt":
+        if op == edn.Keyword("wait-for-yt"):
             wait_for_yt()
-        elif op == "read":
+        elif op == edn.Keyword("read"):
             val = int(yt.get(PATH))
-            message["value"] = val
-            message["type"] = "ok"
-        elif op == "write":
-            message["type"] = "info"
-            yt.set(PATH, message["value"])
-            message["type"] = "ok"
-        elif op == "read-and-lock":
+            message[edn.Keyword("value")] = val
+            message[edn.Keyword("type")] = edn.Keyword("ok")
+        elif op == edn.Keyword("write"):
+            message[edn.Keyword("type")] = edn.Keyword("info")
+            yt.set(PATH, message[edn.Keyword("value")])
+            message[edn.Keyword("type")] = edn.Keyword("ok")
+        elif op == edn.Keyword("read-and-lock"):
             try:
                 with yt.Transaction(type='tablet', sticky=True):
                     for row in yt.lookup_rows(TABLE_PATH, dyntables_ks_from_value(op_val)):
@@ -109,30 +109,30 @@ def handlemessage():
                         for i in range(len(op_val[0])):
                             if yt_key(op_val[0][i][0]) == int(key):
                                 op_val[0][i][1] = int(value)
-                    message["type"] = "ok"
+                    message[edn.Keyword("type")] = edn.Keyword("ok")
                     answer(message)
                     message, op, op_val = consume_input()
-                    assert(op == "write-and-unlock")
+                    assert(op == edn.Keyword("write-and-unlock"))
                     yt.insert_rows(TABLE_PATH, dyntables_kvs_from_value(op_val))
-                    message["type"] = "ok"
+                    message[edn.Keyword("type")] = edn.Keyword("ok")
             except yt.YtResponseError as e:
                 if e.contains_code(1700): #Transaction lock conflict
-                    message["type"] = "fail"
+                    message[edn.Keyword("type")] = edn.Keyword("fail")
                 else:
                     raise e
-        elif op == "mount-table":
+        elif op == edn.Keyword("mount-table"):
             mount_table()
-        elif op == "terminate":
+        elif op == edn.Keyword("terminate"):
             answer(message)
             sys.exit(0)
         else:
-            message["type"] = "fail"
+            message[edn.Keyword("type")] = edn.Keyword("fail")
     except Exception as e:
         eprint(e)
-        if op in ["write", "write-and-unlock"]:
-            message["type"] = "info"
+        if op in [edn.Keyword("write"), edn.Keyword("write-and-unlock")]:
+            message[edn.Keyword("type")] = edn.Keyword("info")
         else:
-            message["type"] = "fail"
+            message[edn.Keyword("type")] = edn.Keyword("fail")
     answer(message)
 
 
