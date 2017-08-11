@@ -128,7 +128,7 @@ def handlemessage():
             message[edn.Keyword("type")] = edn.Keyword("fail")
     except Exception as e:
         eprint(e)
-        if op in [edn.Keyword("write"), edn.Keyword("write-and-unlock")]:
+        if op in [edn.Keyword("write"), edn.Keyword("commit")]:
             message[edn.Keyword("type")] = edn.Keyword("info")
         else:
             message[edn.Keyword("type")] = edn.Keyword("fail")
